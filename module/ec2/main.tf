@@ -1,7 +1,7 @@
 resource "aws_instance" "webapp_instance" {
   vpc_security_group_ids = [aws_security_group.project_SG.id]
   instance_type          = var.instance_type
-  subnet_id              = aws_subnet.public_subnet.id
+  subnet_id              = element(aws_subnet.public_subnet.*.id, count.index) # Dynamically selects subnet id
   ami                    = var.ami
   count                  = 2
   key_name               = var.key_name
@@ -20,45 +20,14 @@ resource "aws_instance" "webapp_instance" {
     Name = "web_${count.index}_instance"
   }
 }
-resource "aws_security_group" "project_SG" {
-  vpc_id = aws_vpc.project_vpc.id
+
+resource "aws_instance" "database_instance" {
+  ami                    = "ami-0dee22c13ea7a9a67"
+  instance_type          = "t2.micro"
+  key_name               = "new_key"
+  vpc_security_group_ids = [aws_security_group.DB_SG.id]
+  subnet_id              = aws_subnet.private_subnet.id
   tags = {
-    Name = "project_SG"
-  }
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  ingress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  ingress {
-    from_port   = 3000
-    to_port     = 3000
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  ingress {
-    from_port   = 3306
-    to_port     = 3306
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  ingress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+    Name = "DataBase_instance"
   }
 }

@@ -1,8 +1,7 @@
 module "vpc" {
-  source                    = "../module/vpc"
-  vpc_cidr_block            = var.vpc_cidr_block
-  public_subnet_cidr_block  = var.public_subnet_cidr_block
-  private_subnet_cidr_block = var.private_subnet_cidr_block
+  source         = "../module/vpc"
+  vpc_cidr_block = "10.0.0.0/16"
+  subnet_config  = var.subnet_config
 }
 module "ec2" {
   source        = "../module/ec2"

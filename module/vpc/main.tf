@@ -4,59 +4,54 @@ resource "aws_vpc" "project_vpc" {
     Name = "project_vpc"
   }
 }
-resource "aws_subnet" "public_subnet" {
-  vpc_id                  = aws_vpc.project_vpc.id
-  cidr_block              = "10.0.1.0/24"
-  map_public_ip_on_launch = true
-  availability_zone       = "ap-south-1b"
-  tags = {
-    Name = "public_subnet"
-  }
-}
-resource "aws_subnet" "public_subnet_2" {
-  vpc_id                  = aws_vpc.project_vpc.id
-  cidr_block              = "10.0.4.0/24"
-  map_public_ip_on_launch = true
-  availability_zone       = "ap-south-1a"
-  tags = {
-    Name = "public_subnet_2"
-  }
-}
-resource "aws_subnet" "private_subnet" {
-  vpc_id                  = aws_vpc.project_vpc.id
-  cidr_block              = "10.0.2.0/24"
-  availability_zone       = "ap-south-1a"
-  map_public_ip_on_launch = false
-  tags = {
-    Name = "private_subnet"
-  }
-}
-resource "aws_subnet" "private_subnet_2" {
-  vpc_id                  = aws_vpc.project_vpc.id
-  cidr_block              = "10.0.3.0/24" # New subnet for another AZ
-  availability_zone       = "ap-south-1b" # Choose a different AZ
-  map_public_ip_on_launch = false
-  tags = {
-    Name = "private_subnet_2"
-  }
-}
+
 resource "aws_internet_gateway" "web_igw" {
   vpc_id = aws_vpc.project_vpc.id
+  count  = length(local.public_subnet) > 0 ? 1 : 0
   tags = {
     Name = "web-igw"
   }
 }
 resource "aws_route_table" "web_rt" {
-  vpc_id = aws_vpc.project_vpc.id
+  vpc_id = aws_vpc.project_vpc.id                  #If the condition (length(local.public_subnet) > 0) is true, it returns 1.
+  count  = length(local.public_subnet) > 0 ? 1 : 0 # if the condition is greater than 0(numeric term) it'll create 1 igw or else 0.
   tags = {
     Name = "web-rt"
   }
   route {
     cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.web_igw.id
+    gateway_id = aws_internet_gateway.web_igw[0].id
   }
 }
 resource "aws_route_table_association" "web_rt_associate" {
-  route_table_id = aws_route_table.web_rt.id
-  subnet_id      = aws_subnet.public_subnet.id
+  for_each       = local.public_subnet
+  route_table_id = aws_route_table.web_rt[each.key].id
+  subnet_id      = aws_subnet.public_subnet[0].id
+}
+
+resource "aws_eip" "elastic_ip" {
+  depends_on = [aws_internet_gateway.web_igw]
+}
+
+# private configurations
+resource "aws_nat_gateway" "nat_gateway" {
+  allocation_id = aws_eip.elastic_ip.id
+  subnet_id     = aws_subnet.private_subnet.id
+  tags = {
+    Name = "nat_gateway"
+  }
+}
+resource "aws_route_table" "pvt_rt" {
+  vpc_id = aws_vpc.project_vpc.id
+  route {
+    nat_gateway_id = aws_nat_gateway.nat_gateway.id
+    cidr_block     = "0.0.0.0/0"
+  }
+  tags = {
+    Name = "pvt_rt"
+  }
+}
+resource "aws_route_table_association" "pvt_rt_association" {
+  route_table_id = aws_route_table.pvt_rt.id
+  subnet_id      = aws_subnet.private_subnet.id
 }
